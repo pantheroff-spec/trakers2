@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер отказа от курения</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    body {
+        font-family: 'Roboto', sans-serif;
+        background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+    }
+    .tracker-container {
+        background: #ffffffdd;
+        border-radius: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        padding: 40px;
+        max-width: 500px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+    h1 {
+        color: #00796b;
+        margin-bottom: 10px;
+    }
+    .days {
+        font-size: 4em;
+        color: #004d40;
+        margin: 20px 0;
+    }
+    .motivation {
+        font-size: 1.2em;
+        color: #004d40;
+        margin: 15px 0;
+    }
+    .progress-bar {
+        width: 100%;
+        background: #b2dfdb;
+        border-radius: 20px;
+        overflow: hidden;
+        height: 25px;
+        margin: 25px 0;
+    }
+    .progress {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #004d40, #26a69a);
+        transition: width 1s ease-in-out;
+    }
+    .icons {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 25px;
+    }
+    .icons svg {
+        width: 60px;
+        height: 60px;
+        filter: drop-shadow(0 3px 5px rgba(0,0,0,0.2));
+    }
+    button {
+        background: #00796b;
+        color: #fff;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1em;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: background 0.3s;
+        margin: 10px 5px 0 5px;
+    }
+    button:hover {
+        background: #004d40;
+    }
+    .smoke {
+        position: absolute;
+        background: radial-gradient(circle, rgba(180,180,180,0.6) 0%, rgba(180,180,180,0) 70%);
+        border-radius: 50%;
+        animation-name: rise;
+        animation-timing-function: linear;
+        animation-iteration-count: 1;
+        opacity: 0.8;
+    }
+    @keyframes rise {
+        0% { transform: translateY(0) scale(0.3); opacity: 0.5; }
+        30% { transform: translateY(-40px) scale(0.5); opacity: 0.4; }
+        60% { transform: translateY(-80px) scale(0.7); opacity: 0.3; }
+        100% { transform: translateY(-140px) scale(1); opacity: 0; }
+    }
+    .savings {
+        margin-top: 10px;
+        font-size: 1em;
+        color: #00796b;
+    }
+    .timer {
+        margin-top: 15px;
+        font-size: 1em;
+        color: #004d40;
+    }
+</style>
+</head>
+<body>
+<div class="tracker-container" id="tracker">
+    <h1>Дни без сигарет</h1>
+    <div class="days" id="days">0</div>
+    <div class="motivation" id="motivation">Начни новый путь к свободе!</div>
+
+    <div class="progress-bar">
+        <div class="progress" id="progress"></div>
+    </div>
+    
+    <div class="savings" id="savings">Экономия: 0 ₽</div>
+    <div class="timer" id="timer">0 дней 0 часов 0 минут 0 секунд</div>
+    
+    <div class="icons">
+        <!-- No Smoking -->
+        <svg viewBox="0 0 512 512">
+          <circle cx="256" cy="256" r="200" fill="#f44336"/>
+          <line x1="160" y1="160" x2="352" y2="352" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
+          <line x1="352" y1="160" x2="160" y2="352" stroke="#fff" stroke-width="40" stroke-linecap="round"/>
+        </svg>
+        <!-- Heart -->
+        <svg viewBox="0 0 512 512">
+          <path d="M256 464s-16-14-40-36c-78-68-124-120-124-180 0-56 44-100 100-100 28 0 52 14 64 36 12-22 36-36 64-36 56 0 100 44 100 100 0 60-46 112-124 180-24 22-40 36-40 36z" fill="#e91e63"/>
+        </svg>
+        <!-- Lungs -->
+        <svg viewBox="0 0 512 512">
+          <path d="M160 80c0 80-40 160-40 160s40 80 40 160h32v-160h48v160h32s0-80 0-160 40-160 40-160H160z" fill="#4caf50"/>
+        </svg>
+    </div>
+
+    <button onclick="addDay()">Добавить день</button>
+    <button onclick="resetTracker()">Сбросить</button>
+</div>
+
+<script>
+    let days = 0;
+    const maxDays = 100;
+    const pricePerPack = 200; // 200 ₽ за пачку
+    const daysElement = document.getElementById('days');
+    const progress = document.getElementById('progress');
+    const motivation = document.getElementById('motivation');
+    const savings = document.getElementById('savings');
+    const timerElement = document.getElementById('timer');
+    const tracker = document.getElementById('tracker');
+
+    let startTime = null;
+    let timerInterval = null;
+
+    // Загрузка данных
+    window.onload = function() {
+        const savedDays = localStorage.getItem('days');
+        const savedStartTime = localStorage.getItem('startTime');
+        if (savedDays) {
+            days = parseInt(savedDays);
+        }
+        if (savedStartTime) {
+            startTime = new Date(Number(savedStartTime));
+            startTimer();
+        }
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        daysElement.textContent = days;
+        const percent = (days / maxDays) * 100;
+        progress.style.width = percent + '%';
+        const saved = days * pricePerPack;
+        savings.textContent = `Экономия: ${saved} ₽`;
+        updateMotivation();
+    }
+
+    function updateMotivation() {
+        if (days < 5) motivation.textContent = "Отличный старт, держись!";
+        else if (days < 15) motivation.textContent = "Ты молодец, организм говорит спасибо!";
+        else if (days < 30) motivation.textContent = "Сильный духом, продолжаем!";
+        else if (days < 60) motivation.textContent = "Ты вдохновляешь себя и других!";
+        else if (days < 100) motivation.textContent = "Уверенный результат, гордись собой!";
+        else motivation.textContent = "Ты победил привычку! Это новый уровень!";
+    }
+
+    function addDay() {
+        if (days < maxDays) {
+            days++;
+            localStorage.setItem('days', days);
+
+            if (!startTime) {
+                startTime = new Date();
+                localStorage.setItem('startTime', startTime.getTime());
+                startTimer();
+            }
+
+            updateDisplay();
+            createSmoke();
+        }
+    }
+
+    function resetTracker() {
+        days = 0;
+        startTime = null;
+        localStorage.removeItem('days');
+        localStorage.removeItem('startTime');
+        updateDisplay();
+        timerElement.textContent = "0 дней 0 часов 0 минут 0 секунд";
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function createSmoke() {
+        const smoke = document.createElement('div');
+        smoke.classList.add('smoke');
+        smoke.style.left = 50 + Math.random() * 400 + 'px';
+        const size = 10 + Math.random() * 20;
+        smoke.style.width = size + 'px';
+        smoke.style.height = size + 'px';
+        smoke.style.animationDuration = (2 + Math.random() * 2) + 's';
+        tracker.appendChild(smoke);
+        setTimeout(() => smoke.remove(), 4000);
+    }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!startTime) return;
+            const now = new Date();
+            const diff = now - startTime;
+
+            const totalSeconds = Math.floor(diff / 1000);
+            const daysCount = Math.floor(totalSeconds / (3600*24));
+            const hours = Math.floor((totalSeconds % (3600*24)) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            timerElement.textContent = `${daysCount} дней ${hours} часов ${minutes} минут ${seconds} секунд`;
+        }, 1000);
+    }
+</script>
+</body>
+</html>
